@@ -1,0 +1,12 @@
+# rayroots-single settings. Copy, keep only what you change, pass with --settings.
+# split: roots = cut above the prop roots, below = roots; dbh = forks below 1.3 m make stems, below them = base
+# ground: percentile = 1st percentile of z; stem_base = lowest point of the stem column
+# roots_model: RCT model of the part below the cut
+genus:
+  Rhizophora: {split: roots, ground: percentile, roots_model: true}
+  Avicennia: {split: dbh, ground: stem_base, roots_model: false}
+rct:                 # RCT per tree, passed through as flags to rayextract trees.
+  ray_vector: "0,0,-0.1"
+  stem: {max_diameter: 2, height_min: 0.5, crop_length: 0.15, gravity_factor: 0.3, global_taper: 0, girth_height_ratio: 0.01}
+  roots: {gravity_factor: 0, global_taper_factor: 0, girth_height_ratio: 0.001, height_min: 0.5, crop_length: 0.15, max_diameter: 2}
+gap_max: 0.25      # flag "vol gap" when |vol_rct / vol_meas - 1| of a tree is above this

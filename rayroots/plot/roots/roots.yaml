@@ -1,0 +1,80 @@
+# rayroots settings. All values below are the frozen method.
+# Copy this file and pass it with --config to change something; a config only needs the keys it changes.
+# Any changed value except `ground` means the run is NOT the frozen method: the log and the outputs say so.
+# Keys in capitals are the constant names in the code.
+
+ground: grid          # grid = lowest-points grid from the cloud (frozen); mesh = RCT terrain mesh (needs --mesh)
+
+# Shared
+h_cut: 4.0            # m above terrain: roots are looked for below this height (v1 and v2, tags v1 / v2)
+cyl_tol: 0.05         # m: v1 keeps a point within this of its owner's cylinder surface
+
+grid:                 # ground grid
+  GROUND_CELL: 0.5    # m: cell
+  GROUND_K: 20        # ground = K-th lowest point per cell
+
+cuts:                 # region and stem tracks (both versions)
+  BUFFER: 2.0         # m around the boundary hull: trees of the plot
+  R_MAX: 7.0          # m: largest root reach; also connect.R_REACH
+  REGION_PAD: 3.0     # m: points kept up to hull + BUFFER + R_MAX + this
+  ASSIGN_PAD: 1.0     # m: points assigned up to hull + BUFFER + R_MAX + this
+  Z_MIN: 0.15         # m above terrain: ground removed
+  HTOP: 8.6           # m above terrain: top of the kept points
+  S0: 8.0             # m: highest start of a stem track
+  H_START: 0.5        # m: lowest slice (skips pneumatophores)
+  SLICE: 0.05         # m: slice thickness
+  STEP: 0.02          # m: slice spacing
+  RASTER: 0.03        # m: blob raster
+  MIN_CELLS: 4        # smallest blob
+  GAP_STEM: 1         # cells of dilation for the stem track
+  STEM_MAX_W: 1.2     # m: a stem blob is narrower than this
+  COL_LO: 1.5         # m: lowest layer of the stem-column search
+  RAD_GROW: 1.5       # a stem's radius stays below this x its median radius in the 1 m above
+  STEM_LOST: 0.5      # m: track stops after this many metres without an own blob
+  STEM_STEP: 0.06     # m: largest centre move per slice
+  MIN_HEIGHT: 2.0     # m: lower segments are not trees (no track)
+
+flip:                 # v1
+  SLAB: 0.10          # m below h_cut: the slice whose blobs become patches
+  PATCH_M: 0.05       # m added to a blob's radius
+  GRID_STEP: 0.1      # m: patch triangle grid
+  MAP_TOL: 0.3        # m: an extracted tree's base may lie this far outside a patch
+  TILE: 16.0          # m: tile core
+  MARGIN: 7.0         # m: tile overlap
+  CYL_STEP: 0.02      # m: axis sample spacing for point-to-cylinder distances
+  CYL_K: 16           # neighbours searched
+  CYL_MAX: 0.5        # m: larger distances stored as this
+  MEM_MIN_GB: 2.0     # memory guard: pause below this
+  MEM_WAIT: 1800      # s: then exit 3 (rerun: resumes from the tile cache)
+  TREES:              # rayextract trees settings on the flipped points
+    gravity_factor: 0
+    global_taper_factor: 0
+    girth_height_ratio: 0.001
+    height_min: 0.5
+    crop_length: 0.15
+    max_diameter: 2
+
+v2:                   # v2
+  CORE: 12.0          # m: tile core
+  COL_PAD: 0.05       # m added to the stem track radius: stem column
+  PAD_EXTRA: 1.0      # m: tile context = R_MAX + this
+  TOL: 0.30           # child width <= bound x (1 + TOL) + ABS_TOL
+  TURN_MAX: 40.0      # deg between axes of consecutive measured pieces
+  BRANCH_MAX: 90.0    # deg: a measured, coherent child at a split may leave at up to this angle
+
+connect:              # v2 fragments and growth
+  VOX: 0.025          # m: voxel
+  BLOCK: 8            # voxels: cube of a fragment (0.20 m)
+  MIN_PTS: 10         # smaller pieces are merged
+  N_MEAS: 30          # measured thickness: enough points ...
+  ELONG: 1.5          # ... and clearly elongated
+  ABS_TOL: 0.01       # m
+  BOUND_K: 3          # bound = largest of the last K measured widths
+  SPLIT_TOL: 0.30     # children: sum of width^2 <= bound^2 x (1 + SPLIT_TOL)^2
+  STEP_MAX: 60.0      # deg: the centroid step goes forward
+  FAN_N: 4            # fan (mat): candidate neighbours ...
+  FAN_R: 0.6          # ... whose directions spread (resultant below this)
+  LOOK: 2             # steps a child must carry on coherently
+  FINE: 4             # voxels: second-pass cube (0.10 m)
+  TIE_REL: 0.10       # near-tie margin, relative
+  TIE_ABS: 0.10       # near-tie margin, absolute

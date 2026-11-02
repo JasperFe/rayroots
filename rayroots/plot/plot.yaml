@@ -1,0 +1,32 @@
+# Plot-side settings (rayroots-plot). Separate from roots.yaml: the root method and its settings hash stay untouched.
+# Copy, keep only what you change, pass with --settings.
+rct:                       # RCT in `segment`, passed through as flags; empty = RCT's defaults. true = a bare flag
+  rayimport: {ray_vector: "0,0,-1", max_intensity: 0, remove_start_pos: true}
+  terrain: {}              # rayextract terrain
+  trees: {}                # rayextract trees, e.g. {max_diameter: 0.9}
+
+d_max_cm: 100.0            # larger rough D: flagged "implausible D", ranked last; the stem position falls back to the base
+
+select:
+  buffer_m: 2.0            # trees of the plot: base within boundary + this
+  h_dbh_m: 1.3             # m above terrain: start of the rough D window; stem position taken here
+  d_top_m: 4.0             # rough D = narrowest running median of the track diameter between h_dbh_m and this
+  d_win_m: 0.3             # width of that running median
+
+review:
+  h_min_m: 3.0             # shorter trees: listed in trees_below_3m.csv only
+  bucket_m: 10.0           # bucket files
+  margin_m: 25.0           # m around the boundary: crowns of trees based near it
+  cell_b_m: 1.0            # cloud occupancy grid for the cloud's outer boundary
+  trunc_min: 200           # edge-truncated: at least this many points in boundary cells
+  trunc_share: 0.002       # and at least this share of the tree's points
+  root_vox_m: 0.05         # root volume = occupied voxels of this size
+  d_bins_cm: [0, 10, 20, 30, 40, .inf]   # size classes (priority, overview)
+  h_bins_m: [0, 10, 15, 20, .inf]
+  preview_points: 300000
+  suggest_genus: false     # genus from root volume where no hint exists. Threshold calibrated on Suriname data
+  genus_index_threshold_m3_m2: 12.765300831605277   # calibrated on Suriname data: root volume / D^2
+  genus_volume_threshold_m3: 1.307                  # calibrated on Suriname data: without a usable D
+
+context:
+  radius_m: 6.0            # cylinder around the stem; 3 m gives files about 4x smaller

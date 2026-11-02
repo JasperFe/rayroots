@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rayroots"
+version = "1.0.0"
+description = "Root finding for RayCloudTools-segmented mangrove plots"
+requires-python = ">=3.11"
+
+[project.scripts]
+rayroots-plot = "rayroots.plot.cli:main"
+rayroots-single = "rayroots.single.cli:main"
+
+[tool.setuptools]
+packages = ["rayroots", "rayroots.plot", "rayroots.plot.roots", "rayroots.single"]
+
+[tool.setuptools.package-data]
+"rayroots.plot.roots" = ["roots.yaml"]
+"rayroots.plot" = ["plot.yaml"]
+"rayroots.single" = ["single.yaml"]

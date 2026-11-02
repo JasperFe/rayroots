@@ -1,0 +1,17 @@
+# conda env create -f environment.yml
+# Versions pinned to the env the frozen roots were made with (regression: array_equal).
+name: rayroots
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11.*
+  - numpy=2.4.6
+  - scipy=1.17.1
+  - pandas=3.0.6
+  - pyyaml
+  - laspy
+  - matplotlib-base
+  - pytest
+  - pip
+  - pip:
+      - -e .

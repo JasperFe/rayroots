@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.egg-info/
+*.ply
+*.las
+*.npz
+.pytest_cache/
+CLAUDE.md
+PROVENANCE.md
