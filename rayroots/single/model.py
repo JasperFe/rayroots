@@ -2,6 +2,7 @@
 Roots are flipped about the cut (z' = 2 z_cut - z), so RCT grows them like a tree. Default: the central run only, one
 result per tree. --ensemble adds 15 runs (90 % subsamples x cut +-0.10 m); the volumes are then their median.
 vol_rct: cylinders with RCT's radii. vol_meas: RCT's skeleton with radii measured from the points.
+vol_area (roots only, central run): the measured cross-section area of oval and fused roots, see area.py.
 """
 import shutil
 import time
@@ -10,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from rayroots.single import figure, settings
+from rayroots.single import area, figure, settings
 from rayroots.single import rct_tools as rt
 
 STEM, ROOT, RAY_VECTOR = None, None, None    # the rct section of single.yaml, set by run()
@@ -59,6 +60,9 @@ def model_part(part, name, xyz, d, shifted, flipped_at=None, z_floor=None):
     if err:
         raise RuntimeError(f"{name}: {err}")
     central, trees, table = measure(d / f"{name}_trees.txt", frame(xyz), LEAF_CAP[part])
+    if part == "roots":
+        table, _ = area.root_areas(trees, frame(xyz), table, rt.segments(trees))
+        central["vol_area"] = float((table["area_m2"] * table["length_m"]).sum())
     table.to_csv(d / f"{name}_segments.csv", index=False)
     runs = []
     if shifted:
@@ -213,6 +217,13 @@ def model_tree(tree, r2, rule, s, ensemble, gap_max):
             if sel:
                 r = sum(t.set_index("run")[m] for _, _, t in sel) if runs else []
                 tree_row |= stats(f"vol_{col}_{m}", "m3", sum(c[f"vol_{m}"] for _, c, _ in sel), r, 4)
+    roots_c = [c for q, c in parts if q == "roots"]
+    if roots_c:                              # roots: central run only; stems and base: RCT
+        tree_row["vol_roots_area_m3"] = round(roots_c[0]["vol_area"], 4)
+        tree_row["vol_area_m3"] = round(tree_row["vol_rct_m3"] - tree_row["vol_roots_rct_m3"] + roots_c[0]["vol_area"], 4)
+    else:
+        tree_row["vol_area_m3"] = tree_row["vol_rct_m3"]
+    tree_row["area_version"] = area.VERSION
     ratio = tree_row["vol_rct_m3"] / tree_row["vol_meas_m3"] if tree_row["vol_meas_m3"] else np.inf
     if abs(ratio - 1) > gap_max:
         flags.append("vol gap")
@@ -265,7 +276,7 @@ def run(project=".", tree=None, ensemble=False, settings_path=None, redo=False, 
     if len(new):
         old = old[~old.tree.isin(new.tree)].dropna(axis=1, how="all")
         tab = pd.concat([old, new], ignore_index=True).sort_values(["tree", "row", "stem"], ascending=[True, False, True])
-        first = ["row", "tree", "stem", "genus", "n_stems", "height_m", "z_ref", "h_cut_m", "vol_rct_m3", "vol_meas_m3", "DBH_h_field_m",
+        first = ["row", "tree", "stem", "genus", "n_stems", "height_m", "z_ref", "h_cut_m", "vol_rct_m3", "vol_meas_m3", "vol_area_m3", "DBH_h_field_m",
                  "DBH_h_m", "DBH_points_cm", "DBH_points_rmse_mm", "DBH_rct_cm", "DBH_meas_cm"]
         tab = tab[[c for c in first if c in tab] + [c for c in tab if c not in first and c != "flags"] + ["flags"]]
         tab.to_csv(out_p, index=False)

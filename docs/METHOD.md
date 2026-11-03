@@ -141,6 +141,7 @@ deleted unless `model --keep`.
 |---|---|
 | `vol_rct_m3`, `vol_meas_m3` | central run; with `--ensemble` the median of the runs, with `_central_`, `_mean_`, `_sd_` columns |
 | `vol_stems_*`, `vol_roots_*`, `vol_base_*` | the same per part of a tree |
+| `vol_roots_area_m3`, `vol_area_m3`, `area_version` | roots from the measured cross-section areas (central run only); tree total = stems and base RCT + roots area. Experimental, not validated |
 | `DBH_h_field_m`, `DBH_h_m` | field height, and the clean height used. Rhizophora: 0.30 m above the last root; Avicennia: 1.3 m above the ground |
 | `DBH_points_cm`, `DBH_rct_cm`, `DBH_meas_cm` | from the points, the RCT model, the measured radii. Several stems: `/` |
 | `h_cut_m`, `height_m`, `z_ref`, `n_stems`, `n_runs` | cut and height above the ground, and counts |

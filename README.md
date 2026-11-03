@@ -209,6 +209,18 @@ command for the 15-run `--ensemble`. `vol_rct` uses RCT's radii; `vol_meas` uses
 | `B_trees/tree_volumes.csv` | volume, DBH, height and flags, one row per tree and per stem |
 | `B_trees/qc/<tree>.png` | where the tree was cut |
 
+Volumes in `tree_volumes.csv`, one column per part and method (m³):
+- `vol_stems_rct`, `vol_roots_rct`, `vol_base_rct`: RCT's cylinders, RCT's radii
+- `vol_stems_meas`, `vol_roots_meas`, `vol_base_meas`: the same skeleton, radii measured from the points
+- `vol_roots_area`: roots only, cross-section area measured from the points per segment (ellipse for oval and fused roots; central run).
+  Experimental, not validated.
+- `vol_rct` = stems + base + roots, RCT
+- `vol_meas` = stems + base + roots, measured radii
+- `vol_area` = stems and base RCT + `vol_roots_area`
+
+`vol_base_*` only for Avicennia. Per-segment radii and areas (`r_rct_m`, `r_meas_m`, `area_m2`, `area_level`, `axis_ratio`) are in
+`work/rct/<tree>/<tree>_<part>_segments.csv`.
+
 Everything else is in `work/` per part, or deleted unless `--keep`. `rayroots-plot overview --project P` shows progress across
 plots in `A_plot/overview.html`. All files: [docs/METHOD.md](docs/METHOD.md).
 
