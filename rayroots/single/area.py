@@ -1,18 +1,19 @@
-"""vol_area (area v1): root volume from the cross-section area of the points, for oval and fused roots.
+"""vol_area (area v2): root volume from the cross-section area of the points, for oval and fused roots.
 Roots only, on the central run. vol_rct and vol_meas are not touched.
 
 Per root segment with r_meas >= MIN_R: three thin slabs perpendicular to the RCT axis (25 / 50 / 75 % of its length).
 In each slab all root points (not only the segment's own), rastered in the slab plane; the blob that contains the
 axis (or the nearest one) is kept and an ellipse is fitted to its points (fits the middle of the noisy ring, works on
-one-sided arcs). Slab area = the ellipse when it covers >= MIN_COVERAGE degrees and is plausible, else the measured
-circle. Segment area = median of the slabs (>= MIN_SLABS ellipses, else the circle). Segments that cross the same
+one-sided arcs). Slab area = the ellipse when it covers >= MIN_COVERAGE degrees and is plausible (no larger than the
+convex hull of its blob's points: a physical upper bound), else the measured circle. Segment area = median of the slabs (>= MIN_SLABS ellipses, else the circle). Segments that cross the same
 blob (stacked roots, twigs inside an oval) share its area: larger circle first, no more than the blob in total.
 Thinner segments keep pi r_meas^2. vol_area = sum of area x length."""
 import numpy as np
 from scipy import ndimage
+from scipy.spatial import ConvexHull, QhullError
 from scipy.spatial import cKDTree
 
-VERSION = "area_v1"
+VERSION = "area_v2"           # v2: hull bound instead of MAX_GROWTH (v1: ellipse <= 4 pi r_meas^2)
 MIN_R = 0.03            # m, r_meas from which the slab areas are used
 SLAB = 0.02             # m, slab thickness
 SLAB_AT = (0.25, 0.5, 0.75)
@@ -22,7 +23,7 @@ NEAR = 0.02             # m, a blob that does not contain the axis is used when 
 MIN_POINTS = 12
 MIN_COVERAGE = 180      # degrees of the ellipse that carry points
 MAX_RATIO = 4.0         # axis ratio
-MAX_GROWTH = 4.0        # ellipse area / pi r_meas^2
+REACH_R = 4.0           # x r_meas (+ NEAR): slab points used around the axis, at most MAX_DIST
 MIN_SLABS = 2
 TRIM = 2.5              # x rmse, points dropped before the refit
 
@@ -166,9 +167,14 @@ def slab_area(p2, r_circle):
     if e is None:
         return circle, "circle", np.nan, None, filled, o
     area = np.pi * e["a"] * e["b"]
+    try:
+        hull = ConvexHull(p2[m]).volume              # 2D: area
+    except QhullError:
+        hull = 0.0
+    e["hull"] = hull
     ci = np.floor(e["centre"] / CELL).astype(int) - o
     inside = 0 <= ci[0] < filled.shape[0] and 0 <= ci[1] < filled.shape[1] and filled[ci[0], ci[1]]
-    ok = (e["coverage_deg"] >= MIN_COVERAGE and e["a"] / e["b"] <= MAX_RATIO and area <= MAX_GROWTH * circle
+    ok = (e["coverage_deg"] >= MIN_COVERAGE and e["a"] / e["b"] <= MAX_RATIO and area <= hull
           and e["a"] <= MAX_DIST and (inside or np.linalg.norm(e["centre"]) <= r_circle))
     if not ok:
         return circle, "circle", e["a"] / e["b"], e, filled, o
@@ -203,7 +209,7 @@ def root_areas(trees, xyz, table, segs):
         areas, ratios = [], []
         for f in SLAB_AT:
             M = A[s] + f * d[s]
-            reach = min(MAX_DIST, MAX_GROWTH * r_meas[s] + NEAR)
+            reach = min(MAX_DIST, REACH_R * r_meas[s] + NEAR)
             q = xyz[kd.query_ball_point(M, np.hypot(reach, SLAB / 2))] - M
             t = q @ axis[s]
             q = q[np.abs(t) < SLAB / 2]
