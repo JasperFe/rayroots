@@ -661,13 +661,17 @@ def split_tree(tree, path, genus, rule, s, over):
     return row
 
 
-def run(project=".", tree=None, settings_path=None, redo=False):
-    """All finished trees of tree_register.csv; a tree that is done is skipped. --tree T redoes T, --redo all."""
+def run(project=".", tree=None, settings_path=None, redo=False, src=None, genus=None, out=None):
+    """All finished trees of tree_register.csv, or the --input files; a tree that is done is skipped. --tree T redoes T,
+    --redo all."""
     cfg = settings.load(settings_path)
-    s = settings.work(project)
+    if src is None:
+        part, todo = settings.part(project), settings.trees(project, cfg, tree)
+    else:
+        part, todo = settings.direct(cfg, src, genus, out, tree)
+    s = part / "work"
     s.mkdir(parents=True, exist_ok=True)
-    todo = settings.trees(project, cfg, tree)
-    ov = settings.overrides(project)
+    ov = settings.overrides(part)
     log_p = s / LOG
     log = pd.read_csv(log_p) if log_p.exists() else pd.DataFrame(columns=["tree", "status"])
     done = set(log.loc[log.status == "ok", "tree"])

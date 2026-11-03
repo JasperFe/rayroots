@@ -153,14 +153,20 @@ rayroots-plot finish --plot <plot> --project P --apply
 
 ### B1 Cut line and split
 Finds the cut and splits the tree into stems and roots. Avicennia is split at forks below 1.3 m instead. Check the QC figure.
+Part B runs on any cleaned tree files, no register needed:
 ```
-rayroots-single split --project P [--tree T]
+rayroots-single split --input tree.ply --genus Rhizophora
+rayroots-single split --input trees/ --genus Rhizophora [--out DIR]
+rayroots-single split --project P [--tree T]          # the trees A6 registered
 ```
-- `--project`: project folder with `A_plot/` (optional, default: current folder)
+- `--input`: one tree `.ply`, or a folder of them; tree name = file name without `_clean` and `.ply`
+- `--genus`: Rhizophora or Avicennia, for all files (optional when the folder is named after the genus)
+- `--out`: output folder (optional, default: `<input folder>/rayroots_single/`)
+- `--project`: instead of `--input`: project folder with `A_plot/tree_register.csv` (optional, default: current folder)
 - `--tree`: this tree only; it is redone (optional)
 - `--redo`: all trees again (optional)
 - `--settings`: yaml with the settings you change, see `rayroots/single/single.yaml` (optional)
-- **Output:** `B_trees/qc/<tree>.png`; stems and roots files in `B_trees/work/`
+- **Output:** `qc/<tree>.png`; stems and roots files in `work/`, in the `--out` folder or `B_trees/`
 - **Uses:** `rayroots/single/split.py` (`slice_profile`, `find_cut`, `split_roots`, `split_dbh`)
 
 To correct a cut, add a row to `B_trees/overrides.csv` (columns `tree`, `h_cut_above_z0`, `n_stems`, `reason`) and run the command
@@ -169,15 +175,17 @@ with `--tree T`. `z0` is the 0.1th percentile of the tree's heights, listed in `
 ### B2 RCT on stem and roots, volume
 Models each stem as it stands and the roots flipped about the cut, then writes volume, DBH and height.
 ```
+rayroots-single model --input tree.ply [--out DIR] [--tree T] [--ensemble]
 rayroots-single model --project P [--tree T] [--ensemble]
 ```
-- `--project`: project folder with `B_trees/` (optional, default: current folder)
+- `--input`, `--out`: the same as in B1; the genus comes from B1
+- `--project`: instead of `--input`: project folder with `B_trees/` (optional, default: current folder)
 - `--tree`: this tree only; it is redone (optional)
 - `--redo`: all trees again (optional)
 - `--ensemble`: 15 runs instead of the central run only (optional)
 - `--keep`: keep the ensemble's tree files (optional)
 - `--settings`: yaml with the settings you change, see `single.yaml` (optional)
-- **Output:** `B_trees/tree_volumes.csv`; panel (d) in the QC figure
+- **Output:** `tree_volumes.csv`, in the `--out` folder or `B_trees/`; panel (d) in the QC figure
 - **Uses:** `rayimport`, `rayextract trees`, with flags from `rct` in `rayroots/single/single.yaml`; `rayroots/single/model.py`
 
 The default is one central run per tree. Trees flagged `rct split`, `stems merged` or `vol gap` are listed at the end with the

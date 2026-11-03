@@ -1,4 +1,4 @@
-"""Settings, the finished trees of a project, and overrides.csv."""
+"""Settings, the trees to run (register route or --input files), and overrides.csv."""
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,10 +18,6 @@ def load(path=None):
 
 def part(project):
     return Path(project) / "B_trees"
-
-
-def work(project):
-    return part(project) / "work"
 
 
 def trees(project, cfg, name=None):
@@ -48,9 +44,37 @@ def trees(project, cfg, name=None):
     return out
 
 
-def overrides(project):
-    """overrides.csv in the project: tree, h_cut_above_z0 (roots), n_stems (dbh), reason. Returns {tree: {key: value}}."""
-    p = part(project) / "overrides.csv"
+def tree_name(path):
+    """File name without .ply and _clean."""
+    return Path(path).stem.removesuffix("_clean")
+
+
+def direct(cfg, src, genus=None, out=None, name=None, need_genus=True):
+    """--input route: one .ply or a folder of .ply files, each file one tree. genus: --genus, else the folder name.
+    Returns (output folder, trees); output folder: --out, else <input folder>/rayroots_single."""
+    src = Path(src)
+    if not src.exists():
+        raise SystemExit(f"not found: {src}")
+    folder = src if src.is_dir() else src.parent
+    files = sorted(src.glob("*.ply")) if src.is_dir() else [src]
+    if not files:
+        raise SystemExit(f"no .ply files in {src}")
+    genus = genus or folder.name
+    if need_genus and genus not in cfg["genus"]:
+        raise SystemExit(f"genus {genus!r} unknown: give --genus, one of {', '.join(cfg['genus'])}")
+    names = [tree_name(p) for p in files]
+    twice = sorted({n for n in names if names.count(n) > 1})
+    if twice:
+        raise SystemExit(f"{src}: two files for tree {', '.join(twice)} (e.g. T.ply and T_clean.ply); keep one")
+    todo = [SimpleNamespace(tree=n, genus=genus, path=p) for n, p in zip(names, files) if name is None or n == name]
+    if name and not todo:
+        raise SystemExit(f"{name}: no such tree file in {src}")
+    return Path(out) if out else folder / "rayroots_single", todo
+
+
+def overrides(part_dir):
+    """overrides.csv in the B_trees folder: tree, h_cut_above_z0 (roots), n_stems (dbh), reason. Returns {tree: {key: value}}."""
+    p = Path(part_dir) / "overrides.csv"
     if not p.exists():
         return {}
     t = pd.read_csv(p)

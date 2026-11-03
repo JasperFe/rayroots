@@ -223,21 +223,26 @@ def model_tree(tree, r2, rule, s, ensemble, gap_max):
     return tree_row, stem_rows
 
 
-def run(project=".", tree=None, ensemble=False, settings_path=None, redo=False, keep=False):
+def run(project=".", tree=None, ensemble=False, settings_path=None, redo=False, keep=False, src=None, out=None):
     """Trees split ok and not in tree_volumes.csv; --tree T redoes T, --redo all. Trees to look at are listed at the end.
-    The ensemble's tree files are deleted unless --keep."""
+    The ensemble's tree files are deleted unless --keep. src, out: the --input route (genus from split_log.csv)."""
     global STEM, ROOT, RAY_VECTOR
-    project = Path(project)
-    s = settings.work(project)
+    cfg = settings.load(settings_path)
+    if src is None:
+        part, todo = settings.part(project), settings.trees(project, cfg, tree)
+        again = f"--project {project}"
+    else:
+        part, todo = settings.direct(cfg, src, None, out, tree, need_genus=False)
+        again = f"--input {src}" + (f" --out {out}" if out else "")
+    s = part / "work"
     log_p = s / "split_log.csv"
     if not log_p.exists():
         raise SystemExit(f"not found: {log_p}; run rayroots-single split first")
-    cfg = settings.load(settings_path)
     STEM, ROOT, RAY_VECTOR = cfg["rct"]["stem"], cfg["rct"]["roots"], cfg["rct"]["ray_vector"]
     log = pd.read_csv(log_p).set_index("tree")
-    out_p = settings.part(project) / FILE
+    out_p = part / FILE
     old = pd.read_csv(out_p) if out_p.exists() else pd.DataFrame(columns=["row", "tree", "flags"])
-    names = [t.tree for t in settings.trees(project, cfg, tree)]
+    names = [t.tree for t in todo]
     names = [t for t in names if t in log.index and log.at[t, "status"] == "ok"]
     done = set(old.tree)
     rows, failed = [], []
@@ -271,7 +276,7 @@ def run(project=".", tree=None, ensemble=False, settings_path=None, redo=False, 
     if len(see):
         print("Central run may be off (rct split, stems merged or vol gap); rerun these:")
         for q in see.itertuples():
-            print(f"  rayroots-single model --tree {q.tree} --ensemble --project {project}    # {q.flags}")
+            print(f"  rayroots-single model --tree {q.tree} --ensemble {again}    # {q.flags}")
     for f in failed:
         print("FAILED", f)
     return 1 if failed else 0
