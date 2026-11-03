@@ -176,14 +176,14 @@ SU6_psp2 is pooled over 6 trees, without SU6_psp2_2 (zero by construction); SU14
 
 ![One Rhizophora, RCT segment only and with root proposals](docs/img/2_roots.png)
 
-**Honest limits:** these are proposals that speed up manual cleaning, not finished trees. Below 2 m on SU6_psp2, v1 reaches
+**CURRENT STATUS:** these are proposals that speed up manual cleaning, root detection is not (yet?) perfect. Tests on Suriname plots; root detection method v1 reaches
 precision 0.53 and recall 0.69, v2 precision 0.65 and recall 0.53 ([validation](docs/validation/roots.md)). The 4 m cut is fixed for
-every tree, a contested point can be given to two trees, and the method was tested on 2 unseen plots only.
+every plot, a contested point can be given to two trees, and the method was tested on 2 unseen plots - with a limited amount of hand segmented trees - only.
 
-### Single tree
-Cut the tree into horizontal slices and count the blobs in each. Below the last prop root a slice has many blobs, above it one per
-stem. The last root is the bottom of the lowest clean run, and the cut is the last root + 0.6 m. The roots below the cut are flipped
-about it (z' = 2 z_cut - z), so RCT grows stem and roots like trees, which gives the volume.
+### Single tree QSM building
+Once manual cleaning of all (or a number of) trees has finished, QSM's can be built for every seperate tree. Here, for every tree flagged as a *Rhizophora*, the tree is cut into horizontal slices and count the "blobs" in each. Below the highest prop root a slice has many blobs, above it one per
+stem (in most cases). The last root is the bottom of the lowest clean run, and the cut is the last root + 0.6 m. The roots below the cut are flipped
+about it (z' = 2 z_cut - z), so RCT grows stem and roots like trees, which gives the volume. 
 
 ![The cut on a single-stem Rhizophora](docs/img/5_cut.png)
 
