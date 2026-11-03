@@ -176,6 +176,83 @@ def area_profile(R):
     return prof
 
 
+# %% Slice check: horizontal cross-sections of the points against the cylinders crossing them
+def slice_check(R, step=0.10, thick=0.02, max_tilt=45, closed=1.2):
+    """Every `step` a horizontal slice `thick` thick of the root points, rastered at area.CELL; blobs as in area.py
+    (closing, 8-neighbour labels, holes filled). Per blob the cylinders whose axis crosses the slice plane inside it.
+    Kept: blobs with >= 1 cylinder, all steeper than max_tilt from the horizontal. Points cross-section = filled blob
+    area x cos(tilt) (tilt from the vertical, circle-weighted mean of its cylinders); hull = the same with the convex
+    hull of the blob's points (upper bound); mid = filled minus half the shell cells (the middle of the noisy shell,
+    the line the ellipse fits; the filled blob reaches its outer edge). Model = sum of the cylinders' cross-sections (rct, meas, area).
+    closed: filled / raw cells; a blob is a closed ring when its holes add >= 20 %, else an open arc (the filled area
+    is then only the shell, far too small). Returns one row per blob."""
+    from scipy import ndimage
+    pts, tab = R["pts"], R["tab"]
+    A, B = R["segs"][0], R["segs"][1]
+    d = B - A
+    L = np.linalg.norm(d, axis=1)
+    cos_t = np.abs(d[:, 2]) / np.maximum(L, 1e-12)
+    steep = cos_t >= np.cos(np.radians(max_tilt))
+    circ = {"rct": np.pi * tab.r_rct_m.to_numpy() ** 2, "meas": np.pi * tab.r_meas_m.to_numpy() ** 2,
+            "area": tab.area_m2.to_numpy()}
+    z_lo, z_hi = R["z_cut"], pts[:, 2].max()
+    rows = []
+    for c in np.arange(z_lo + step / 2, z_hi, step):
+        q = pts[np.abs(pts[:, 2] - c) < thick / 2, :2]
+        if len(q) < 10:
+            continue
+        ij = np.floor(q / area.CELL).astype(int)
+        o = ij.min(0) - 2
+        ij -= o
+        img = np.zeros(ij.max(0) + 3, bool)
+        img[ij[:, 0], ij[:, 1]] = True
+        img = ndimage.binary_closing(img, np.ones((3, 3)), border_value=0) | img
+        lab, n = ndimage.label(img, np.ones((3, 3)))
+        filled = np.zeros_like(lab)
+        for k, sl in enumerate(ndimage.find_objects(lab), 1):
+            f = ndimage.binary_fill_holes(lab[sl] == k)
+            filled[sl][f & (filled[sl] == 0)] = k
+        j, X = crossing(R["segs"], np.r_[0.0, 0.0, c], np.r_[0.0, 0.0, 1.0], np.inf)
+        cj = np.floor(X[:, :2] / area.CELL).astype(int).reshape(-1, 2) - o      # X - (0, 0, c): x, y absolute
+        ins = (cj[:, 0] >= 0) & (cj[:, 1] >= 0) & (cj[:, 0] < lab.shape[0]) & (cj[:, 1] < lab.shape[1])
+        blob = np.zeros(len(j), int)
+        blob[ins] = filled[cj[ins, 0], cj[ins, 1]]
+        pl = lab[ij[:, 0], ij[:, 1]]
+        for k in np.unique(blob[blob > 0]):
+            js = j[blob == k]
+            raw, fill = int((lab == k).sum()), int((filled == k).sum())
+            qk = q[pl == k]
+            try:
+                hull = ConvexHull(qk).volume if len(qk) >= 3 else 0.0
+            except Exception:
+                hull = 0.0
+            w = circ["meas"][js]
+            ct = float((cos_t[js] * w).sum() / w.sum())
+            rows.append({"h_m": round(2 * R["z_cut"] - c - R["z_ref"], 2), "n_cyl": len(js), "all_steep": bool(steep[js].all()),
+                         "closed": fill >= closed * raw, "cos_tilt": ct,
+                         "points_m2": fill * area.CELL ** 2 * ct, "mid_m2": (fill - raw / 2) * area.CELL ** 2 * ct,
+                         "hull_m2": hull * ct,
+                         **{f"{m}_m2": float(v[js].sum()) for m, v in circ.items()}})
+    return pd.DataFrame(rows)
+
+
+def slice_summary(tree, s):
+    """Sums over the kept blobs, per subset (closed rings / all)."""
+    out = []
+    for name, t in (("closed rings", s[s.all_steep & s.closed]), ("all steep blobs", s[s.all_steep])):
+        row = {"tree": tree, "blobs": name, "n": len(t)}
+        for ref in ("mid", "points", "hull"):
+            p = t[f"{ref}_m2"].sum()
+            row[f"{ref}_m2"] = round(p, 3)
+            for m in ("rct", "meas", "area"):
+                row[f"{m}/{ref}"] = round(t[f"{m}_m2"].sum() / p, 3) if p else np.nan
+        e = {m: (t[f"{m}_m2"] - t.mid_m2).abs() for m in ("rct", "meas", "area")}
+        row["area closer to mid than meas"] = f"{int((e['area'] < e['meas']).sum())}/{int((e['area'] != e['meas']).sum())}"
+        row["rct closer to mid than area"] = f"{int((e['rct'] < e['area']).sum())}/{len(t)}"
+        out.append(row)
+    return out
+
+
 # %% QC figure: the 3 segments whose area changes most
 def qc_figure(R, tree, out):
     tab = R["tab"]
@@ -235,10 +312,11 @@ if __name__ == "__main__":
     a.add_argument("single", type=Path)
     a.add_argument("out", type=Path)
     a.add_argument("--arch-tree", default="SU6_psp4_17")
+    a.add_argument("--no-synthetic", action="store_true")
     x = a.parse_args()
     x.out.mkdir(parents=True, exist_ok=True)
     md = ["# vol_area checks", ""]
-    syn = synthetic_rings()
+    syn = synthetic_rings() if not x.no_synthetic else pd.DataFrame()
     md += ["## Synthetic rings (5 mm noise, 20 rings each; ellipse area of one slab)", "", table(syn), ""]
     rows = []
     for ratio in (1, 1.5, 2):
@@ -250,13 +328,16 @@ if __name__ == "__main__":
            table(pd.DataFrame(rows)), ""]
     vol = pd.read_csv(x.single / "tree_volumes.csv")
     vol = vol[vol["row"] == "tree"]
-    tot, prof_dev = [], []
+    tot, prof_dev, slices = [], [], []
     for tree in vol.tree:
         R = load(x.single, tree)
         prof = area_profile(R)
         prof.to_csv(x.out / f"{tree}_area_profile.csv", index=False)
         profile_figure(prof, tree, x.out / f"{tree}_area_profile.png")
         qc_figure(R, tree, x.out / f"{tree}_area_qc.png")
+        sc = slice_check(R)
+        sc.round(5).to_csv(x.out / f"{tree}_slices.csv", index=False)
+        slices += slice_summary(tree, sc)
         p = prof.points_m2.sum()
         prof_dev.append({"tree": tree, **{f"{m}_vs_points_pct": round(100 * (prof[f"{m}_m2"].sum() / p - 1), 1)
                                           for m in ("rct", "meas", "area")},
@@ -273,6 +354,10 @@ if __name__ == "__main__":
             md += [f"## Arch sections a-c, {tree} (as ref_scripts/arch.py)", "", table(arch), ""]
     md += ["## Root totals", "", table(pd.DataFrame(tot)), "",
            "## Area profile: side-view outline summed over the 10 cm bands, against the points", "",
-           table(pd.DataFrame(prof_dev)), ""]
+           table(pd.DataFrame(prof_dev)), "",
+           "## Slice check: horizontal 2 cm slices every 10 cm, blobs with only roots steeper than 45 deg", "",
+           "mid = filled blob minus half its shell (middle of the point shell), x cos(tilt); points = filled blob x cos(tilt); hull = convex hull of the blob's points x cos(tilt) (upper bound). "
+           "Closed rings: holes filled add >= 20 % (the filled area is the cross-section); open arcs fill to the shell only.", "",
+           table(pd.DataFrame(slices)), ""]
     (x.out / "area_check.md").write_text("\n".join(md))
     print("\n".join(md))
