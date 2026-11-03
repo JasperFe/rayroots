@@ -256,10 +256,15 @@ def slice_summary(tree, s):
 # %% QC figure: the 3 segments whose area changes most
 def qc_figure(R, tree, out):
     tab = R["tab"]
-    gain = (tab.area_m2 - np.pi * tab.r_meas_m ** 2) * tab.length_m
-    top = np.argsort(-np.abs(gain.to_numpy()))[:3]
+    gain = ((tab.area_m2 - np.pi * tab.r_meas_m ** 2) * tab.length_m).where(tab.r_meas_m >= area.MIN_R, 0)   # slabs only there
+    top = np.argsort(-np.abs(gain.to_numpy()))[:min(3, int((tab.r_meas_m >= area.MIN_R).sum()))]
     _, slabs = area.root_areas(R["trees"], R["pts"], tab[["r_meas_m", "level", "length_m"]], R["segs"])
-    fig, ax = plt.subplots(1, 3, figsize=(12, 4.4))
+    if not len(top):
+        return
+    fig, ax = plt.subplots(1, 3, figsize=(12, 4.4), squeeze=False)
+    ax = ax[0]
+    for a in ax[len(top):]:
+        a.set_axis_off()
     for a, s in zip(ax, top):
         sl = [x for x in slabs if x["seg"] == s][1]                   # the middle slab
         p2 = sl["points"]
