@@ -190,6 +190,7 @@ rayroots-single model --project P [--tree T] [--ensemble]
 
 The default is one central run per tree. Trees flagged `rct split`, `stems merged` or `vol gap` are listed at the end with the
 command for the 15-run `--ensemble`. `vol_rct` uses RCT's radii; `vol_meas` uses the same skeleton with radii measured from the points.
+`vol_meas` is the default: on closed root sections it is consistently 10-15 % below the points; `vol_rct` swings between -17 and +15 %.
 
 ## Outputs
 **Part A**
@@ -208,17 +209,15 @@ command for the 15-run `--ensemble`. `vol_rct` uses RCT's radii; `vol_meas` uses
 |---|---|
 | `B_trees/tree_volumes.csv` | volume, DBH, height and flags, one row per tree and per stem |
 | `B_trees/qc/<tree>.png` | where the tree was cut |
+| `vol_area` | experimental, see [docs/METHOD.md](docs/METHOD.md) |
 
 Volumes in `tree_volumes.csv`, one column per part and method (m³):
 - `vol_stems_rct`, `vol_roots_rct`, `vol_base_rct`: RCT's cylinders, RCT's radii
 - `vol_stems_meas`, `vol_roots_meas`, `vol_base_meas`: the same skeleton, radii measured from the points
-- `vol_roots_area`: roots only, cross-section area measured from the points per segment (ellipse for oval and fused roots; central run).
-  Experimental, not validated.
 - `vol_rct` = stems + base + roots, RCT
 - `vol_meas` = stems + base + roots, measured radii
-- `vol_area` = stems and base RCT + `vol_roots_area`
 
-`vol_base_*` only for Avicennia. Per-segment radii and areas (`r_rct_m`, `r_meas_m`, `area_m2`, `area_level`, `axis_ratio`) are in
+`vol_base_*` only for Avicennia. Per-segment radii (`r_rct_m`, `r_meas_m`) are in
 `work/rct/<tree>/<tree>_<part>_segments.csv`.
 
 Everything else is in `work/` per part, or deleted unless `--keep`. `rayroots-plot overview --project P` shows progress across
@@ -271,6 +270,7 @@ The cut is within 0.5 m of the hand cut on 22 of 27 trees, with a mean absolute 
 - **Part B is not validated yet.** It reproduces the study's logged results, but the choice between `vol_rct` and `vol_meas` is open.
 - **B needs cleaned trees.** The two stems of `SU7_psp3_364_136` were cut at 1.74 m and 3.91 m uncleaned, against 3.53 m cleaned.
 - **Cut errors:** `SU15_psp1_6` is 1.34 m too low and **not flagged**, taken as multi-stem. `SU14_psp3_4` is 1.71 m too high, flagged `short run`.
+- **Small root systems** can be badly underestimated: RCT models them as many thin cylinders (3-9 % of the cross-section on two test trees).
 - **The central run** can be well off where RCT splits a tree; that is why flagged trees get the rerun command.
 - **Avicennia base:** it counts in the tree total and has its own column; how to divide it over the stems is open.
 - **Other genera** are skipped by part B, with a message.

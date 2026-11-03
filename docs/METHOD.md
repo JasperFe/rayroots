@@ -141,7 +141,7 @@ deleted unless `model --keep`.
 |---|---|
 | `vol_rct_m3`, `vol_meas_m3` | central run; with `--ensemble` the median of the runs, with `_central_`, `_mean_`, `_sd_` columns |
 | `vol_stems_*`, `vol_roots_*`, `vol_base_*` | the same per part of a tree |
-| `vol_roots_area_m3`, `vol_area_m3`, `area_version` | roots from the measured cross-section areas (central run only); tree total = stems and base RCT + roots area. Experimental, not validated |
+| `vol_roots_area_m3`, `vol_area_m3`, `area_version` | experimental, see `vol_area` below |
 | `DBH_h_field_m`, `DBH_h_m` | field height, and the clean height used. Rhizophora: 0.30 m above the last root; Avicennia: 1.3 m above the ground |
 | `DBH_points_cm`, `DBH_rct_cm`, `DBH_meas_cm` | from the points, the RCT model, the measured radii. Several stems: `/` |
 | `h_cut_m`, `height_m`, `z_ref`, `n_stems`, `n_runs` | cut and height above the ground, and counts |
@@ -167,6 +167,15 @@ cut can be far off: `crop_22` and `crop_56` from the crop are the uncleaned stem
 
 **Tests.** Against reference logs, `tests/compare_single.py`: identical cut, stem count, point counts and central volumes on
 `SU7_psp3_364_136` and `SU7_psp3_119`, and identical ensemble medians on 364_136 (10 min, 0.9 GB). The cut: [validation/cut.md](validation/cut.md).
+
+**`vol_area` (experimental, `area_v1`).** An extra root volume for oval and fused roots; `vol_meas` stays the default.
+Per root segment with `r_meas` >= 3 cm, three 2 cm slabs across the RCT axis (25, 50, 75 % of its length). In each slab
+the root points are rastered at 1 cm, the blob around the axis is kept and an ellipse is fitted to its points (direct fit,
+then a geometric refinement). A slab's ellipse counts when it covers >= 180 deg, has an axis ratio <= 4 and an area
+<= 4 pi r_meas^2; else the slab keeps the measured circle. The segment's area is the median of >= 2 accepted slabs, else
+pi r_meas^2. Segments crossing the same blob share its area, larger circle first. `vol_roots_area` = sum of area x length,
+central run only; `vol_area` = stems and base RCT + `vol_roots_area`. Per segment `area_m2`, `area_level` and `axis_ratio`
+are in `rct/<tree>/<tree>_roots_segments.csv`. Code: `rayroots/single/area.py`; checks: [validation/area.md](validation/area.md).
 
 ## Method
 The method is frozen: v1 and v2 are not changed, a change is a new version.
@@ -216,7 +225,8 @@ numbers inside the method code (for example the 0.3 m seed band below `h_cut`) a
   test values no longer apply.
 
 ## Validation
-[Root proposals on unseen plots](validation/roots.md), [the cut on hand-cut trees](validation/cut.md).
+[Root proposals on unseen plots](validation/roots.md), [the cut on hand-cut trees](validation/cut.md),
+[`vol_area` and the slice check](validation/area.md).
 
 **Not validated:**
 - The union of v1 and v2, and the v2-wins rule for contested points: v1 and v2 were scored separately.
