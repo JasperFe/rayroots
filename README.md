@@ -207,5 +207,8 @@ More in [docs/METHOD.md](docs/METHOD.md#known-limits).
 ## Origin
 Developed by Jasper Feyen (Q-ForestLab, Ghent University) in a TLS study of mangroves in Suriname.
 
-## Licence
-Placeholder, see `LICENSE`. RayCloudTools is separate software with its own licence.
+## references
+
+Devereux, T., Lowe, T., Rivory, J., Reckziegel, R. B., Calders, K., Aryal, R. R., Eaton, G., Cooper, Z., Levick, S., Phinn, S., & Woodgate, W. (2026). RayExtract: A fast, scalable method for tree volume reconstruction from terrestrial laser scanning. Remote Sensing of Environment, 334, 115162. https://doi.org/10.1016/j.rse.2025.115162
+
+
