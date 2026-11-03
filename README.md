@@ -1,6 +1,6 @@
 # rayroots
 
-rayroots takes a terrestrial laser scan of a mangrove plot to finished single trees with volumes. RayCloudTools (RCT) segments the plot into trees but misses most prop roots; rayroots proposes those roots per tree. You clean the proposals by hand in a gallery-led review, and rayroots then splits each cleaned tree at an automatic cut line and models stem and roots to a volume.
+rayroots takes a terrestrial laser scan of a mangrove plot to finished single trees with volumes. RayCloudTools (RCT) segments the plot into trees but misses most prop roots; rayroots proposes those roots per tree. You clean the proposals by hand in a gallery-led review. Rayroots also builds QSM's of single trees and splits each cleaned Rhizophora tree at an automatic cut line and models stem and roots to a volume. The single-tree method builds on modelling prop roots as inverted trees ([Asmath et al., 2025](https://link.springer.com/article/10.1007/s13157-025-01985-x)), but finds the cut line automatically instead of by hand, and models stem and roots with RayCloudTools.
 
 ![From plot cloud to cleaned tree](docs/img/1_overview.png)
 
