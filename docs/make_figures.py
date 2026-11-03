@@ -1,5 +1,5 @@
 """Figures of the README, from the test crop (docs/img/*.png, < 500 kB each).
-Usage: make_figures.py <project> <plot> <stem> --hand <hand-cleaned tree.ply> --gallery <gallery screenshot.png> --qc <one.png> <two.png>
+Usage: make_figures.py <project> <plot> <stem> --hand <hand-cleaned tree.ply> [--single <project>] --gallery <gallery screenshot.png> --qc <one.png> <two.png>
 <project>: run_plot.sh --project; the crop must be run with --keep. Run in the conda env rayroots. Figure 3 runs RCT."""
 # %% Imports
 import argparse
@@ -107,50 +107,115 @@ def draw_cylinders(ax, seg, u=0, v=2, fz=lambda z: z, color="#5b3a1e"):
     ax.add_collection(PolyCollection(q, facecolors=color, edgecolors="none"))
 
 
-# %% Figure 1: overview strip
-def fig1(project, plot, stem, hand, gallery):
-    plots, rv = project / "A_plot" / "work" / plot, project / "A_plot" / "review" / plot
-    t = read_tree(rv, TREE)
-    y0 = np.median(t["y"][t["hag"] > 2])
-    mm, _ = cm.memmap(plots / f"{stem}_segmented_roots.ply")
-    a = np.asarray(mm[::12])
-    a = a[np.abs(a["y"] - y0) < 3]
-    a = a[sample(len(a), 500_000)]
-    ids = rw.decode_ids(a["red"], a["green"], a["blue"])
-    keep = a["alpha"] > 0
-    a, ids = a[keep], ids[keep]
-    x, z, src = a["x"], a["z"], a["root_src"]
-    h = read_ply(hand)
-    hx, hz = np.asarray(h["x"], float), np.asarray(h["z"], float)
-    k = sample(len(hx), 200_000)
-    tr = trees_csv(rv).sort_values("H_m", ascending=False).head(4)
+# %% Figure 1: one tree through the workflow
+HAND_TREE = "SU7_psp3_364_136"     # its RCT segments
+SEGS = {56: "#6a3d9a", 22: "#b8860b"}
+STEM_C, ROOT_C, WOOD = "#3b6e8f", "#a0522d", "#5b3a1e"
+FAINT = "#e4e4e4"
 
-    img = Image.open(gallery).convert("RGB")
-    img = img.crop((0, 0, img.width, int(img.width * 0.72)))
-    wid = [1, 1, 1, 1.15, 1.25, 0.42]
-    fig, ax = plt.subplots(1, 6, figsize=(13, 3.2), gridspec_kw={"width_ratios": wid, "wspace": 0.05})
-    side(ax[0], x, z)
-    u = ids >= 0
-    side(ax[1], x[~u], z[~u], PALE)
-    side(ax[1], x[u & (src == 0)], z[u & (src == 0)], colours(ids[u & (src == 0)]))
-    r = src > 0
-    side(ax[2], x[~r], z[~r], PALE)
-    for c in (1, 2, 3):
-        side(ax[2], x[src == c], z[src == c], [SRC[c]], 0.5)
-    off = 0.0
-    for i, q in enumerate(tr.itertuples()):
-        b = read_tree(rv, q.tree)
-        s = sample(len(b["x"]), 60_000)
-        bx = b["x"][s] - np.median(b["x"]) + off
-        side(ax[3], bx, b["z"][s], colours([i])[0])
-        off += max(np.ptp(b["x"][s]) * 0.55, 3)
-    ax[4].imshow(img)
-    ax[4].axis("off")
-    side(ax[5], hx[k], hz[k])
-    for i in range(3):
-        ax[i].set_xlim(x.min(), x.max())
-        ax[i].set_ylim(z.min() - 0.5, z.max() + 0.5)
-    titles(fig, ax, ["Plot cloud", "RCT segments", "Root proposals", "Single trees", "Gallery, for review", "Cleaned tree"])
+
+def align(hand, ref, tol=0.05, it=10):
+    """Shift that moves hand onto ref (median nearest-neighbour offset, iterated); zero when already aligned."""
+    from scipy.spatial import cKDTree
+    kd, h = cKDTree(ref), hand[sample(len(hand), 50_000)]
+    d0 = np.median(kd.query(h)[0])
+    shift = np.zeros(3)
+    if d0 > tol:
+        for _ in range(it):
+            _, j = kd.query(h + shift)
+            shift += np.median(ref[j] - (h + shift), axis=0)
+    d1 = np.median(kd.query(h + shift)[0])
+    print(f"cleaned tree vs crop: median nearest-neighbour {d0:.3f} m; shift {np.round(shift, 3)} m -> {d1:.3f} m")
+    return shift
+
+
+def fig1(project, plot, stem, hand, single):
+    mm, _ = cm.memmap(project / "A_plot" / "work" / plot / f"{stem}_segmented_roots.ply")
+    xyz = np.c_[mm["x"], mm["y"], mm["z"]].astype(float)
+    ids = rw.decode_ids(mm["red"], mm["green"], mm["blue"])
+    src, ok = np.asarray(mm["root_src"]), np.asarray(mm["alpha"]) > 0
+    seg = ok & np.isin(ids, list(SEGS)) & (src == 0)
+    prop = ok & np.isin(ids, list(SEGS)) & (src > 0)
+    own = seg | prop
+    h = read_ply(hand)
+    hxyz = np.c_[h["x"], h["y"], h["z"]].astype(float)
+    shift = align(hxyz, xyz[own][sample(own.sum(), 300_000)])
+    hxyz += shift
+
+    # view: horizontal axis along the widest root spread (first principal axis of the proposals in xy)
+    c = np.median(xyz[seg, :2], axis=0)
+    w, v = np.linalg.eigh(np.cov((xyz[prop, :2] - c).T))
+    e1 = v[:, np.argmax(w)]
+    e2 = np.array([-e1[1], e1[0]])
+    uv = lambda p: ((p[:, :2] - c) @ e1, (p[:, :2] - c) @ e2)
+    u, dep = uv(xyz)
+    hu, hdep = uv(hxyz)
+    tu = np.r_[u[own], hu]
+    td = np.r_[dep[own], hdep]
+    tz = np.r_[xyz[own, 2], hxyz[:, 2]]
+    xl = (tu.min() - 0.5, tu.max() + 0.5)
+    yl = (tz.min() - 0.3, tz.max() + 0.3)
+    inwin = ok & (u > xl[0]) & (u < xl[1]) & (xyz[:, 2] > yl[0]) & (xyz[:, 2] < yl[1]) \
+        & (dep > td.min() - 0.5) & (dep < td.max() + 0.5)          # the slab the tree fills, seen side on
+    print(f"figure 1: window {np.ptp(xl):.1f} x {np.ptp(yl):.1f} m, view axis {np.round(e1, 3)}, {inwin.sum():,} crop points")
+
+    def pick(m, n):
+        i = np.flatnonzero(m)
+        return i[sample(len(i), n)]
+
+    # single-tree outputs, in the cleaned tree's frame
+    s = single / "B_trees" / "work"
+    r = pd.read_csv(s / "split_log.csv").set_index("tree").loc[HAND_TREE]
+    z_cut = float(r["z_cut"]) + shift[2]
+    pts = lambda p: np.c_[(q := read_ply(p))["x"], q["y"], q["z"]].astype(float) + shift
+    stems = [pts(p) for p in sorted((s / "stems").glob(f"{HAND_TREE}_stem*.ply"))]
+    roots = [pts(p) for p in (s / "roots").glob(f"{HAND_TREE}_roots.ply")]
+    d = s / "rct" / HAND_TREE
+    cyl = [(p, lambda z: z) for p in sorted(d.glob("*_trees.txt")) if not p.name.endswith("_roots_trees.txt")]
+    cyl += [(p, lambda z: 2 * float(r["z_cut"]) - z) for p in d.glob(f"{HAND_TREE}_roots_trees.txt")]   # mapped back
+    vol = float(pd.read_csv(single / "B_trees" / "tree_volumes.csv").query("row == 'tree'").set_index("tree").at[HAND_TREE, "vol_rct_m3"])
+
+    def proj(p):
+        """Into the view: (u, 0, z); draw_cylinders takes columns 0 and 2."""
+        return np.c_[(p[:, :2] - c) @ e1, np.zeros(len(p)), p[:, 2]]
+
+    W = 13.0
+    pw = W / 6
+    fig, ax = plt.subplots(1, 6, figsize=(W, pw * np.ptp(yl) / np.ptp(xl) + 0.6), gridspec_kw={"wspace": 0.02})
+    k = pick(inwin, 300_000)
+    side(ax[0], u[k], xyz[k, 2])
+    k = pick(inwin & ~seg, 250_000)
+    side(ax[1], u[k], xyz[k, 2], PALE)
+    for sid, col in SEGS.items():
+        k = pick(seg & (ids == sid), 120_000)
+        side(ax[1], u[k], xyz[k, 2], col, 0.2)
+    k = pick(inwin & ~own, 250_000)
+    side(ax[2], u[k], xyz[k, 2], FAINT)
+    k = pick(seg, 150_000)
+    side(ax[2], u[k], xyz[k, 2], GREY)
+    for code in (1, 2, 3):
+        k = pick(prop & (src == code), 80_000)
+        side(ax[2], u[k], xyz[k, 2], [SRC[code]], 0.3)
+    k = sample(len(hu), 200_000)
+    side(ax[3], hu[k], hxyz[k, 2], GREY, 0.2)
+    for p, col in [(q, STEM_C) for q in stems] + [(q, ROOT_C) for q in roots]:
+        q = proj(p[sample(len(p), 120_000)])
+        side(ax[4], q[:, 0], q[:, 2], col, 0.2)
+    ax[4].axhline(z_cut, color=CUT, lw=1)
+    side(ax[5], hu[k], hxyz[k, 2], FAINT, 0.2)
+    for p, fz in cyl:
+        back = lambda a: proj(np.r_[a[:2], fz(a[2])][None] + shift)[0]
+        draw_cylinders(ax[5], [(back(p0), back(p1), rr) for p0, p1, rr in cylinders(p)], color=WOOD)
+    ax[5].text(xl[0] + 0.2, yl[1], f"{vol:.2f} m³", va="top", fontsize=8)
+    for a in ax:
+        a.set_xlim(*xl)
+        a.set_ylim(*yl)
+    titles(fig, ax, ["Scan", "RCT segments", "Root proposals", "Cleaned tree", "Cut line", "Model"])
+    top = max(t.get_window_extent().y1 for t in fig.texts) / fig.bbox.height
+    for i0, i1, name in ((0, 2, "A. Plot"), (3, 3, "Cleaning"), (4, 5, "B. Single tree")):
+        x0, x1 = ax[i0].get_position().x0 + 0.004, ax[i1].get_position().x1 - 0.004
+        fig.add_artist(plt.Line2D([x0, x1], [top + 0.025] * 2, color="k", lw=0.6))
+        fig.text((x0 + x1) / 2, top + 0.035, name, ha="center", va="bottom", fontsize=10, weight="bold")
     save(fig, "1_overview.png")
 
 
@@ -243,11 +308,12 @@ if __name__ == "__main__":
     a.add_argument("plot")
     a.add_argument("stem")
     a.add_argument("--hand", type=Path, required=True)
+    a.add_argument("--single", type=Path, help="project with B_trees/ of the cleaned tree (default: <project>)")
     a.add_argument("--gallery", type=Path, required=True)
     a.add_argument("--qc", type=Path, nargs=2, required=True, help="QC figures: single-stem tree, two-stem tree")
     x = a.parse_args()
     OUT.mkdir(exist_ok=True)
-    fig1(x.project, x.plot, x.stem, x.hand, x.gallery)
+    fig1(x.project, x.plot, x.stem, x.hand, x.single or x.project)
     fig2(x.project, x.plot)
     fig3(x.project, x.plot)
     fig4(x.gallery)
