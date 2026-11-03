@@ -33,32 +33,23 @@ job at a time. For whole plots use a server (`scripts/server_template.sh`) or gi
 The root step ran on 8 GB, and part B needs about 1 GB per tree.
 
 ## Step by step
-`P` is your project folder. A step whose output exists is skipped, and `--redo` runs it again. Input paths given once (LAS,
-`--segmented`, `--mesh`, `--boundary`) and the roots A2 writes are remembered in `A_plot/work/<plot>/run.json`, so later steps
-need only `--plot` and `--project`. Settings files (`--settings`, `--config`) and options such as `--plot-genus` are not
-remembered: give them again whenever you run that step. To run A1 to A4 in one go, detached:
+`P` is your project folder. A step whose output exists is skipped, and `--redo` runs it again. A path given once is remembered,
+so later steps need only `--plot` and `--project`. To run A1 to A4 in one go, detached:
 ```
 setsid nohup bash scripts/run_plot.sh <plot>.las --boundary b.csv --project P > run.log 2>&1 &
 ```
-
-Common to all steps:
-
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `--project` | project folder; created if missing. `A_plot/` (A steps) and `B_trees/` (B steps) go inside | optional | current folder |
-| `--plot` | name you choose for this plot (A steps only). Used for the folders `work/<plot>/`, `review/<plot>/` and the tree names `<plot>_<seg_id>`. Use letters, digits and `_` (not checked) | required, except in A1 | A1: the LAS file name without `.las` |
-| `--redo` | flag: run the step again although its output exists (A1–A4, B1–B2) | optional | off: skip |
-| `--settings` | yaml with only the settings you change, overlaid on `rayroots/plot/plot.yaml` (A1, A3, A4, A5) or `rayroots/single/single.yaml` (B1, B2) | optional | the shipped yaml |
-| `--keep` | flag: keep large intermediate files. A1: the LAS copy, ray cloud and RCT tree mesh. A2: the recoloured cloud `<stem>_segmented_roots.ply`, split into one file per segment in `work/<plot>/trees/`. B2: the ensemble's tree files | optional | off: deleted |
 
 ### A1 RCT segmentation
 Turns the LAS into a ray cloud, finds the terrain and segments the trees. Skip it if you have your own `rayextract` output.
 ```
 rayroots-plot segment <plot>.las --project P
 ```
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `las` (positional) | plot point cloud, `.las` (LAS 1.x). The header offset is logged as `las_offset_exact` in `work/<plot>/<plot>.rct.log`; the segmented frame is the LAS coordinates minus this offset | required | |
+- `las`: the plot LAS file
+- `--plot`: name for this plot, used in folder and tree names (optional, default: LAS file name)
+- `--project`: project folder, created if missing (optional, default: current folder)
+- `--settings`: yaml with the settings you change, see `rayroots/plot/plot.yaml` (optional)
+- `--redo`: run this step again even if its output exists (optional)
+- `--keep`: keep the LAS copy, ray cloud and RCT tree mesh (optional)
 - **Output:** `A_plot/work/<plot>/<plot>_segmented.ply`, `<plot>_mesh.ply`
 - **Uses:** `rayimport`, `rayextract terrain`, `rayextract trees`, with flags from `rct` in `rayroots/plot/plot.yaml`
 
@@ -68,13 +59,17 @@ Attaches root points to their tree below 4 m. See [How it works](#how-it-works).
 rayroots-plot roots --plot <plot> --project P --boundary b.csv
 rayroots-plot roots --plot <plot> --project P --segmented own_segmented.ply --mesh own_mesh.ply   # your own RCT output
 ```
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `--segmented` | your own `rayextract trees` output (`<stem>_segmented.ply`) instead of A1's. Remembered | optional | A1 output |
-| `--boundary` | csv with columns `x,y` (scan positions or polygon corners) in the segmented frame (LAS minus the LAS header offset, see the A1 log). The plot is their convex hull. Remembered | optional | whole cloud |
-| `--mesh` | terrain mesh `.ply` from `rayextract terrain`; only used with `--ground mesh`. Remembered | optional | A1 output |
-| `--ground` | `grid` (lowest points per cell, frozen method) or `mesh` (the terrain mesh; not the frozen method) | optional | `grid` |
-| `--config` | yaml with only the method settings you change, overlaid on `rayroots/plot/roots/roots.yaml`. Any change except `ground` makes the run not the frozen method | optional | `roots.yaml` |
+- `--plot`: name for this plot, used in folder and tree names
+- `--project`: project folder, created if missing (optional, default: current folder)
+- `--boundary`: csv with x,y of scan positions or polygon corners, in the segmented frame (optional)
+- `--segmented`: your own rayextract output instead of A1's (optional)
+- `--mesh`: terrain mesh from rayextract terrain, used with `--ground mesh` (optional)
+- `--ground`: `grid` (frozen method) or `mesh` (optional, default: grid)
+- `--config`: yaml with the method settings you change, see `roots.yaml`; then not the frozen method (optional)
+- `--redo`: run this step again even if its output exists (optional)
+- `--keep`: keep the cloud with root proposals, split per tree (optional)
+
+Paths given in an earlier step are remembered.
 
 - **Output:** `A_plot/work/<plot>/<stem>_roots.npz`, `<stem>_roots.csv`
 - **Uses:** `rayextract trees` on the flipped cloud; `rayroots/plot/roots/` (`flip.py` v1, `v2.py` and `connect.py` v2). Frozen method
@@ -84,10 +79,14 @@ Lists the trees of the plot: base inside the boundary + 2 m, with a rough D, H a
 ```
 rayroots-plot select --plot <plot> --project P
 ```
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `--segmented` | as in A2. Remembered | optional | remembered |
-| `--boundary` | as in A2. Remembered | optional | remembered, else whole cloud |
+- `--plot`: name for this plot, used in folder and tree names
+- `--project`: project folder, created if missing (optional, default: current folder)
+- `--segmented`: your own rayextract output instead of A1's (optional)
+- `--boundary`: csv with x,y of scan positions or polygon corners, in the segmented frame (optional)
+- `--settings`: yaml with the settings you change, see `plot.yaml` (optional)
+- `--redo`: run this step again even if its output exists (optional)
+
+Paths given in an earlier step are remembered.
 
 - **Output:** `A_plot/work/<plot>/trees_in_plot.csv`
 - **Uses:** `rayroots/plot/select.py`
@@ -97,15 +96,18 @@ Writes one file per tree of 3 m and taller, with previews, ranked so that thin s
 ```
 rayroots-plot review --plot <plot> --project P [--plot-genus Rhizophora] [--genus-hints h.csv]
 ```
-Needs `trees_in_plot.csv` (A3); uses A2's roots when they exist.
+- `--plot`: name for this plot, used in folder and tree names
+- `--project`: project folder, created if missing (optional, default: current folder)
+- `--segmented`: your own rayextract output instead of A1's (optional)
+- `--boundary`: csv with x,y of scan positions or polygon corners, in the segmented frame (optional)
+- `--settings`: yaml with the settings you change, see `plot.yaml` (optional)
+- `--plot-genus`: genus of every tree without a hint, e.g. Rhizophora (optional)
+- `--genus-hints`: csv with columns tree or seg_id, and genus (optional)
+- `--existing-trees`: csv with genus, H_m, D_cm of trees you already have; their size classes rank lower (optional)
+- `--no-roots`: tree files without root proposals (optional)
+- `--redo`: run this step again even if its output exists (optional)
 
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `--segmented`, `--boundary` | as in A2. Remembered | optional | remembered |
-| `--plot-genus` | genus given to every tree without a hint, e.g. `Rhizophora` | optional | `unknown` |
-| `--genus-hints` | csv with columns `tree` (e.g. `<plot>_56`) or `seg_id` (e.g. `56`), and `genus`; overrides `--plot-genus` | optional | none |
-| `--existing-trees` | csv with columns `genus,H_m,D_cm`: trees you already have, so their size classes are ranked lower | optional | none |
-| `--no-roots` | flag: tree files with the own segment only, without root proposals | optional | off: with roots if A2 ran |
+Paths given in an earlier step are remembered.
 
 - **Output:** `A_plot/review/<plot>/`: `00_gallery.html`, `checklist.csv`, `trees/`
 - **Uses:** `rayroots/plot/review.py`, `page.py`, `store.py`
@@ -121,13 +123,15 @@ a radius around the tree. Open both files in CloudCompare and copy the missing p
 ```
 rayroots-plot context --plot <plot> --project P [tree ...] [--radius 6]
 ```
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `trees` (positional) | tree names (`<plot>_56`) or segment ids (`56`), separated by spaces | optional | all trees marked `fix` in `checklist.csv` |
-| `--radius` | radius in m of the cylinder cut around the stem | optional | 6 (`context.radius_m` in `plot.yaml`) |
-| `--segmented` | segmented cloud to cut from; not stored in `run.json` | optional | remembered |
+- `tree ...`: tree names or segment ids (optional, default: all trees marked `fix` in `checklist.csv`)
+- `--plot`: name for this plot, used in folder and tree names
+- `--project`: project folder, created if missing (optional, default: current folder)
+- `--radius`: radius in m around the stem (optional, default: 6)
+- `--segmented`: your own rayextract output instead of A1's (optional)
+- `--settings`: yaml with the settings you change, see `plot.yaml` (optional)
 
-A tree whose context file exists is skipped.
+Paths given in an earlier step are remembered.
+
 - **Output:** `A_plot/review/<plot>/context/<tree>_context.ply`
 - **Uses:** `rayroots/plot/context.py`
 
@@ -141,12 +145,9 @@ Copies the `ok` trees and the `_clean` files to the finished trees. Without `--a
 ```
 rayroots-plot finish --plot <plot> --project P --apply
 ```
-Needs `checklist.csv` with a `status` and a `genus` per tree, and `trees/<tree>_clean.ply` for each `fix`.
-
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `--apply` | flag: copy and register. Without it, only prints what it would do | optional | off: dry run |
-
+- `--plot`: name for this plot, used in folder and tree names
+- `--project`: project folder, created if missing (optional, default: current folder)
+- `--apply`: copy and register; without it, only show what it would do (optional)
 - **Output:** `A_plot/finished_trees/<genus>/<tree>.ply`, `A_plot/tree_register.csv`
 - **Uses:** `rayroots/plot/finish.py`
 
@@ -155,13 +156,10 @@ Finds the cut and splits the tree into stems and roots. Avicennia is split at fo
 ```
 rayroots-single split --project P [--tree T]
 ```
-Needs `A_plot/finished_trees/` and `A_plot/tree_register.csv` (A6); reads `B_trees/overrides.csv` if it exists.
-
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `--tree` | one tree name from `tree_register.csv`, e.g. `<plot>_56`; it is redone | optional | all trees not split yet |
-| `--redo` | flag: split all trees again | optional | off |
-
+- `--project`: project folder with `A_plot/` (optional, default: current folder)
+- `--tree`: this tree only; it is redone (optional)
+- `--redo`: all trees again (optional)
+- `--settings`: yaml with the settings you change, see `rayroots/single/single.yaml` (optional)
 - **Output:** `B_trees/qc/<tree>.png`; stems and roots files in `B_trees/work/`
 - **Uses:** `rayroots/single/split.py` (`slice_profile`, `find_cut`, `split_roots`, `split_dbh`)
 
@@ -173,15 +171,12 @@ Models each stem as it stands and the roots flipped about the cut, then writes v
 ```
 rayroots-single model --project P [--tree T] [--ensemble]
 ```
-Needs B1's split parts in `B_trees/work/`.
-
-| parameter | what it expects | required / optional | default |
-|---|---|---|---|
-| `--tree` | one tree name, e.g. `<plot>_56`; it is redone | optional | all split trees not modelled yet |
-| `--redo` | flag: model all trees again | optional | off |
-| `--ensemble` | flag: 15 runs (90 % subsamples x cut ±0.10 m) instead of the central run only; volumes are their median | optional | off |
-| `--keep` | flag: keep the ensemble's tree files | optional | off: deleted |
-
+- `--project`: project folder with `B_trees/` (optional, default: current folder)
+- `--tree`: this tree only; it is redone (optional)
+- `--redo`: all trees again (optional)
+- `--ensemble`: 15 runs instead of the central run only (optional)
+- `--keep`: keep the ensemble's tree files (optional)
+- `--settings`: yaml with the settings you change, see `single.yaml` (optional)
 - **Output:** `B_trees/tree_volumes.csv`; panel (d) in the QC figure
 - **Uses:** `rayimport`, `rayextract trees`, with flags from `rct` in `rayroots/single/single.yaml`; `rayroots/single/model.py`
 
