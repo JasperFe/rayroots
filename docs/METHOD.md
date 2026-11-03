@@ -117,37 +117,6 @@ below 2 m; contested points were not scored separately). `rayroots-plot tree` pu
 A point can move away from its RCT segment only when that segment does not reach `h_cut` (or is unsegmented). So
 small segments low down can lose points to a tree (`n_rct` counts them before that).
 
-## Cleaning a tree in CloudCompare
-Start from `review/<plot>/00_gallery.html` and `checklist.csv`. Trees marked `fix` need `rayroots-plot context --plot <plot>`,
-then open `trees/<priority>_<tree>.ply` and `context/<tree>_context.ply` in CloudCompare, and save the result as
-`trees/<tree>_clean.ply`. `finish` copies `ok` trees and `_clean` files. An `ok` tree with `n_contested` > 0 can share
-points with a neighbour: `finish` warns, it does not block.
-
-Outside a review, to make a file that shows where each point comes from (needs `roots --keep`):
-```
-rayroots-plot tree 364 136 --plot X --project P
-```
-This writes `<stem>_tree_<id>.ply` with its RCT points and all its roots, contested ones included, with fields
-`root_src` and `contested` and RGB by source:
-
-| colour | RGB | meaning |
-|---|---|---|
-| grey | 127,127,127 | RCT tree (`root_src` 0) |
-| green | 0,150,60 | roots from both v1 and v2 (3) |
-| orange | 235,104,52 | v1 only (1) |
-| blue | 42,120,214 | v2 only (2) |
-| magenta | 220,0,200 | contested (`contested` = 1); also in another tree |
-
-1. Open the file; keep the default PLY field mapping. `root_src` and `contested` appear as scalar fields.
-2. Check magenta points against the other tree they are in.
-3. Remove false points with the Segment tool (scissors), working in small views around the stem.
-4. To see only one class: Edit > Scalar fields > Filter by value on `root_src`.
-5. If a tree has two segments (split stem), merge them with Edit > Merge after cleaning; drop one copy of a
-   contested point that is in both.
-6. Save as binary PLY.
-
-A root that no method found: open `<stem>_unsegmented.ply` alongside, cut the root out and merge it in.
-
 ## Part B: single tree
 Input: `A_plot/finished_trees/<genus>/<tree>.ply` and `A_plot/tree_register.csv`; trees with status ok or fix. A tree already
 done is skipped; `--tree T` redoes T, `--redo` all. Not validated yet, see the [README](../README.md#known-limits-and-not-tested).

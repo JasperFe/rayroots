@@ -94,7 +94,7 @@ rayroots-plot context --plot <plot> --project P [tree ...] [--radius 6]
 ### Manual cleaning
 Do this between A5 and A6, for each tree marked `fix`. In CloudCompare, open `trees/<priority>_<tree>.ply` and its context file
 together and keep the proposed shift. Remove false points, copy in missing ones, and save as `trees/<tree>_clean.ply`.
-Check magenta points: they are also in another tree. Details: [Cleaning a tree](docs/METHOD.md#cleaning-a-tree-in-cloudcompare).
+Check magenta points: they are also in another tree.
 
 ### A6 Finish
 Copies the `ok` trees and the `_clean` files to the finished trees. Without `--apply` it only shows what it would do.
